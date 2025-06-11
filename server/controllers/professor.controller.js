@@ -2,6 +2,7 @@ import { Professor } from "../models/professor.model.js";
 import jwt from "jsonwebtoken"
 import bcrypt from "bcrypt"
 import { Request } from "../models/Request.model.js";
+import { Project } from "../models/project.model.js";
 
 
 export const login = async (req, res) => {
@@ -89,10 +90,6 @@ export const logout = async (req, res) => {
 };
 
 // prof accept student mentor request
-
-import { Request } from "../models/Request.model.js";
-import { Project } from "../models/project.model.js";
-
 export const acceptRequest = async (req, res) => {
   const professorId = req.user._id;
   const { requestId } = req.params;
