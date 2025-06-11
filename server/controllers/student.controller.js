@@ -5,6 +5,7 @@ import { Project } from "../models/project.model.js";
 import { Professor } from "../models/professor.model.js";
 import getDataUri from "../utils/dataUri.js";
 import cloudinary from "../utils/cloudinary.js";
+import { Request } from "../models/Request.model.js";
 
 
 export const login = async (req, res) => {
@@ -151,7 +152,7 @@ export const selectProject = async (req, res) => {
     project.isAvailable = false;
     await project.save();
 
-    // Update student with selected project
+    // Update student with selected project 
     student.selectedProject = projectId;
     await student.save();
 
@@ -175,7 +176,6 @@ export const selectProject = async (req, res) => {
 
 // req a mentor - prof 
 export const requestMentor = async (req, res) => {
-
   const studentId = req.user._id;
   const { professorId } = req.body;
 
@@ -187,56 +187,69 @@ export const requestMentor = async (req, res) => {
   }
 
   try {
-    const student = await Student.findById(studentId)
+    // Fetch student
+    const student = await Student.findById(studentId);
     if (!student || !student.selectedProject) {
       return res.status(400).json({
-        message: " project not selected ",
-        success: false
-      })
+        success: false,
+        message: "Project not selected. Please select a project first.",
+      });
     }
-    // avoid multiple request
-    const alreadyRequested = await Professor.exists({ mentorshipRequest: studentId })
 
-    if (alreadyRequested) {
+    // Check if student already has an active pending request
+    const existingPendingRequest = await Request.findOne({
+      requestBy: studentId,
+      status: "pending",
+    });
+
+    if (existingPendingRequest) {
       return res.status(400).json({
-        message: "Mentor already requested",
-        success: false
-      })
+        success: false,
+        message: "You already have a pending mentorship request.",
+      });
     }
-    // Check professor availability 
+
+    // Check if this professor already rejected this student
+    const previouslyRejected = await Request.findOne({
+      requestBy: studentId,
+      forProfessor: professorId,
+      status: "rejected",
+    });
+
+    if (previouslyRejected) {
+      return res.status(400).json({
+        success: false,
+        message: "You have already been rejected by this professor.",
+      });
+    }
+
+    // Check professor availability
     const professor = await Professor.findById(professorId);
     if (!professor || !professor.isAvailableToMentor) {
       return res.status(400).json({
         success: false,
-        message: "Professor not available to mentor",
-      });
-    }
-    // dont send req to the same prof again
-    const isRejectedByThisProfessor = professor.rejectedRequest.includes(studentId);
-
-    if (isRejectedByThisProfessor) {
-      return res.status(400).json({
-        success: false,
-        message: `Your request was already rejected by ${professor.profile.name}`,
+        message: "Professor is not available to mentor at the moment.",
       });
     }
 
-
-
-    // Add mentorship request to professor (if not already requested)
-    await Professor.findByIdAndUpdate(professorId, {
-      $addToSet: { mentorshipRequest: studentId },
+    // Create new mentorship request
+    await Request.create({
+      requestBy: studentId,
+      forProject: student.selectedProject,
+      forProfessor: professorId,
+      status: "pending",
     });
 
     return res.status(200).json({
       success: true,
-      message: "Mentorship request sent successfully",
+      message: "Mentorship request sent successfully.",
     });
+
   } catch (error) {
     console.error("Error sending mentorship request:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: "Internal server error.",
     });
   }
 };
@@ -337,109 +350,121 @@ export const studentUpdateProfile = async (req, res) => {
 };
 
 // student dashboard api
-
 export const getStudentDashboard = async (req, res) => {
-
   try {
-
     const studentId = req.user._id;
-    const student = await Student.findById(studentId).populate("selectedProject")
+
+    const student = await Student.findById(studentId)
+      .populate("selectedProject");
+
     if (!student) {
       return res.status(401).json({
-        message: "student doesn't exist",
+        message: "Student doesn't exist",
         success: false
-      })
+      });
     }
-    const selectedProject = student.selectedProject
-    const isMentorRequested = await Professor.findOne({ mentorshipRequest: studentId })
 
+    const selectedProject = student.selectedProject;
+
+    // Check if student has a pending mentorship request
+    const existingRequest = await Request.findOne({
+      requestBy: studentId,
+      status: "pending"
+    });
 
     return res.status(200).json({
       success: true,
       data: {
         project: selectedProject || null,
-        isMentorRequested: !!isMentorRequested,
+        showRequestMentorButton: !!selectedProject && !existingRequest,
         isProfileComplete: !!student.isProfileComplete
-
       },
       message: "Dashboard data fetched successfully"
-
-    })
-
-
-
+    });
 
   } catch (error) {
-
+    console.error("Error in getStudentDashboard:", error);
     return res.status(500).json({
-      message: "internal server errror",
+      message: "Internal server error",
       success: false
-    })
+    });
   }
+};
 
-}
+
+
+
+
+
+
+
 // student check status of their request
-
 export const getRequestStatus = async (req, res) => {
   try {
     const studentId = req.user._id;
 
-    const result = await Professor.aggregate([
-      {
-        $facet: {
-          accepted: [
-            { $match: { acceptedRequest: studentId } },
-            { $project: { _id: 1 } }
-          ],
-          rejected: [
-            { $match: { rejectedRequest: studentId } },
-            { $project: { _id: 1 } }
-          ],
-          pending: [
-            { $match: { mentorshipRequest: studentId } },
-            { $project: { _id: 1 } }
-          ]
-        }
-      }
-    ]);
+    // Find the latest request made by the student (if any)
+    const latestRequest = await Request.findOne({ requestBy: studentId })
+      .sort({ createdAt: -1 }) // get latest
+      .populate("forProfessor", "profile.name profile.department")
+      .populate("forProject", "title");
 
-    const { accepted, rejected, pending } = result[0];
-
-    if (accepted.length > 0) {
+    if (!latestRequest) {
       return res.status(200).json({
-        message: "Mentorship request accepted",
-        status: "accepted",
-        success: true,
-      });
-    }
-
-    if (rejected.length > 0) {
-      return res.status(200).json({
-        message: "Mentorship request rejected",
-        status: "rejected",
-        success: true,
-      });
-    }
-
-    if (pending.length > 0) {
-      return res.status(200).json({
-        message: "Mentorship request pending",
-        status: "pending",
+        status: "not_requested",
+        message: "No mentorship request sent yet",
         success: true,
       });
     }
 
     return res.status(200).json({
-      message: "No mentorship request sent yet",
-      status: "not_requested",
+      status: latestRequest.status,
+      professor: latestRequest.forProfessor,
+      project: latestRequest.forProject,
+      message: `Request status is: ${latestRequest.status}`,
       success: true,
     });
 
   } catch (error) {
-    console.error("Error in getRequestStatus (aggregated):", error);
+    console.error("Error fetching request status:", error);
     return res.status(500).json({
-      message: "Internal server error",
       success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+
+
+// withdraw pending mentorship request 
+export const withdrawMentorshipRequest = async (req, res) => {
+  const studentId = req.user._id;
+
+  try {
+    const request = await Request.findOne({
+      requestBy: studentId,
+      status: "pending"
+    });
+
+    if (!request) {
+      return res.status(400).json({
+        success: false,
+        message: "No pending mentorship request found to withdraw.",
+      });
+    }
+
+    await request.deleteOne();
+
+    return res.status(200).json({
+      success: true,
+      message: "Mentorship request withdrawn successfully.",
+    });
+
+  } catch (error) {
+    console.error("Error withdrawing mentorship request:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
     });
   }
 };

@@ -1,4 +1,4 @@
-import { Professor } from "../models/professor.model";
+import { Professor } from "../models/professor.model.js";
 import jwt from "jsonwebtoken"
 import bcrypt from "bcrypt"
 

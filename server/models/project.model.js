@@ -1,58 +1,59 @@
+
+
 // import mongoose from "mongoose";
 
-
-
 // const projectSchema = new mongoose.Schema({
-//     title: {
-//         type: String,
-//         required: true
-//     },
-//     description: {
-//         type: String
-//     },
-//     category: {
-//         type: String,
-//         required: true
-//     },
-//     isAvailable: {
-//         type: Boolean,
-//         default: true,
-//     },
-//     selectedBy: {
-//         type: mongoose.Schema.Types.ObjectId,
-//         ref: "Student"
-//     },
-//     mentorBy: {
-//         type: mongoose.Schema.Types.ObjectId,
-//         ref: "Professor"
-//     }
+//   title: {
+//     type: String,
+//     required: true,
+//     trim: true  
+//   },
+//   description: {
+//     type: String,
+//     trim: true  
+//   },
+//   category: {
+//     type: String,
+//     required: true  
+//   },
+//   isAvailable: {
+//     type: Boolean,
+//     default: true  
+//   },
+//   selectedBy: {
+//     type: mongoose.Schema.Types.ObjectId,
+//     ref: "Student"
+//   },
+//   mentorBy: {
+//     type: mongoose.Schema.Types.ObjectId,
+//     ref: "Professor"
+//   }
+// }, { timestamps: true });
 
-// }, { timestamps: true })
-
-// export const Project = mongoose.model("Project",projectSchema);
+// export const Project = mongoose.model("Project", projectSchema);
 
 
 
-
+// models/project.model.js
 import mongoose from "mongoose";
 
 const projectSchema = new mongoose.Schema({
   title: {
     type: String,
     required: true,
-    trim: true  
+    trim: true
   },
   description: {
     type: String,
-    trim: true  
+    trim: true
   },
   category: {
     type: String,
-    required: true  
+    required: true
   },
   isAvailable: {
     type: Boolean,
-    default: true  
+    default: true
   },
   selectedBy: {
     type: mongoose.Schema.Types.ObjectId,

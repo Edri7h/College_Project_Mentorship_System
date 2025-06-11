@@ -1,9 +1,5 @@
-# Ignore all .env files in all folders
-*.env
+# Ignore environment file
+/server/.env
 
-# Or if only in server/
-server/.env
-
-# Other typical ignores
-node_modules/
-dist/
+# Ignore node_modules in server
+/server/node_modules/
