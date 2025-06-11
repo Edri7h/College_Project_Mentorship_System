@@ -17,11 +17,11 @@ const StudentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Project"
   },
-  mentor: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Professor",
-    default: null,
-  },
+  // mentor: {
+  //   type: mongoose.Schema.Types.ObjectId,
+  //   ref: "Professor",
+  //   default: null,
+  // },
   isProfileComplete: {
     type: Boolean,
     default: false
