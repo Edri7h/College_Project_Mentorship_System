@@ -258,7 +258,7 @@ export const requestMentor = async (req, res) => {
 // get prof by dept
 export const getProfessorsByDepartment = async (req, res) => {
 
-  const department = req.query.department;
+  const department = req.query.department || "";
 
   if (!department || !["IT", "CSE", "ECE"].includes(department)) {
     return res.status(400).json({
@@ -390,8 +390,6 @@ export const getStudentDashboard = async (req, res) => {
     });
   }
 };
-
-
 
 
 
