@@ -32,7 +32,7 @@
 
 import express from "express";
 import {
-  getAvailableProjects,
+  getAllProjects,
   getProfessorsByDepartment,
   getRequestStatus,
   getStudentDashboard,
@@ -45,23 +45,24 @@ import {
 } from "../controllers/student.controller.js";
 
 import { isStudent } from "../middlewares/isStudent.js";
+import { singleUpload } from "../middlewares/multer.js";
 
 const router = express.Router();
 
 router.post("/login", login);
 router.get("/logout", isStudent, logout);
 
-router.get("/get-projects", isStudent, getAvailableProjects);
+router.get("/get-projects", isStudent, getAllProjects);
 router.post("/select-project", isStudent, selectProject);
 
 router.post("/request-mentor", isStudent, requestMentor);
 router.get("/get-professor-by-dept", isStudent, getProfessorsByDepartment);
 
-router.post("/update-profile", isStudent, studentUpdateProfile);
+router.post("/update-profile", isStudent,singleUpload, studentUpdateProfile);
 router.get("/get-dashboard", isStudent, getStudentDashboard);
 
 router.get("/get-request-status", isStudent, getRequestStatus);
-router.delete("/withdraw-request", isStudent, withdrawMentorshipRequest);
+router.patch("/withdraw-request", isStudent, withdrawMentorshipRequest);
 
 export default router;
 

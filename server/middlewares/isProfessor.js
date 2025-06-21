@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 
-export const isProfessor = (req, res, next) => {
+ const isProfessor = (req, res, next) => {
   const token = req.cookies.token;
 
   if (!token) {
@@ -31,3 +31,4 @@ export const isProfessor = (req, res, next) => {
     });
   }
 };
+export default isProfessor;

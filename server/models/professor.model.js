@@ -21,8 +21,15 @@ const ProfessorSchema = new mongoose.Schema({
   },
   isAvailableToMentor: {
     type: Boolean,
-    default: false
+    default: true
   },
+  receivedRequests: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Student'
+    }
+  ],
+
   profile: {
     name: String,
     photo: String,

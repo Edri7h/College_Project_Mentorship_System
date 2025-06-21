@@ -7,10 +7,10 @@ const router = express.Router()
 
 router.use("/api/v1/admin",adminRoutes)
 
-router.use("api/v1/student",studentRoutes)
+router.use("/api/v1/student",studentRoutes)
 
-router.use("api/v1/professor",professorRoutes)
+router.use("/api/v1/professor",professorRoutes)
 
 
-export default router
+export default router;
 

@@ -9,7 +9,6 @@ import { Request } from "../models/Request.model.js";
 
 
 export const login = async (req, res) => {
-
   const { email, password } = req.body;
 
   if (!email?.trim() || !password?.trim()) {
@@ -51,9 +50,12 @@ export const login = async (req, res) => {
       message: "Login successful",
       success: true,
       student: {
+        
         _id: student._id,
         profile: student.profile,
         email: student.email,
+        // selectedProjectId:student.selectedProject,
+        isProfileComplete:student.isProfileComplete
       }
     });
 
@@ -92,10 +94,11 @@ export const logout = async (req, res) => {
   }
 };
 
-// student get available projects //
-export const getAvailableProjects = async (req, res) => {
+
+// Get ALL projects regardless of availability
+export const getAllProjects = async (req, res) => {
   try {
-    const projects = await Project.find({ isAvailable: true })
+    const projects = await Project.find()
       .populate({
         path: "mentorBy",
         select: "profile.name profile.department email"
@@ -107,13 +110,14 @@ export const getAvailableProjects = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Error fetching available projects:", error);
+    console.error("Error fetching projects:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error"
     });
   }
 };
+
 
 
 // select project 
@@ -175,6 +179,84 @@ export const selectProject = async (req, res) => {
 
 
 // req a mentor - prof 
+// export const requestMentor = async (req, res) => {
+//   const studentId = req.user._id;
+//   const { professorId } = req.body;
+
+//   if (!professorId) {
+//     return res.status(400).json({
+//       success: false,
+//       message: "Professor ID is required",
+//     });
+//   }
+
+//   try {
+//     // Fetch student
+//     const student = await Student.findById(studentId);
+//     if (!student || !student.selectedProject) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Project not selected. Please select a project first.",
+//       });
+//     }
+
+//     // Check if student already has an active pending request
+//     const existingPendingRequest = await Request.findOne({
+//       requestBy: studentId,
+//       status: "pending",
+//     });
+
+//     if (existingPendingRequest) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "You already have a pending mentorship request.",
+//       });
+//     }
+
+//     // Check if this professor already rejected this student
+//     const previouslyRejected = await Request.findOne({
+//       requestBy: studentId,
+//       forProfessor: professorId,
+//       status: "rejected",
+//     });
+
+//     if (previouslyRejected) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "You have already been rejected by this professor.",
+//       });
+//     }
+
+//     // Check professor availability
+//     const professor = await Professor.findById(professorId);
+//     if (!professor || !professor.isAvailableToMentor) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Professor is not available to mentor at the moment.",
+//       });
+//     }
+
+//     // Create new mentorship request
+//     await Request.create({
+//       requestBy: studentId,
+//       forProject: student.selectedProject,
+//       forProfessor: professorId,
+//       status: "pending",
+//     });
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Mentorship request sent successfully.",
+//     });
+
+//   } catch (error) {
+//     console.error("Error sending mentorship request:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal server error.",
+//     });
+//   }
+// };
 export const requestMentor = async (req, res) => {
   const studentId = req.user._id;
   const { professorId } = req.body;
@@ -240,6 +322,11 @@ export const requestMentor = async (req, res) => {
       status: "pending",
     });
 
+    // ✅ Add studentId to professor's receivedRequests array
+    await Professor.findByIdAndUpdate(professorId, {
+      $addToSet: { receivedRequests: studentId }
+    });
+
     return res.status(200).json({
       success: true,
       message: "Mentorship request sent successfully.",
@@ -255,9 +342,41 @@ export const requestMentor = async (req, res) => {
 };
 
 
-// get prof by dept
-export const getProfessorsByDepartment = async (req, res) => {
 
+// get prof by dept
+// export const getProfessorsByDepartment = async (req, res) => {
+
+//   const department = req.query.department || "";
+//   // console.log(department)
+
+//   if (!department || !["IT", "CSE", "ECE"].includes(department)) {
+//     return res.status(400).json({
+//       success: false,
+//       message: "Valid department is required",
+//     });
+//   }
+
+//   try {
+//     const professors = await Professor.find({
+//       "profile.department": department,
+//       isAvailableToMentor: true,
+//     }).select("profile.name email");
+
+//     return res.status(200).json({
+//       success: true,
+//       professors,
+//     });
+
+//   } catch (error) {
+//     console.error("Error fetching professors by department:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal server error",
+//     });
+//   }
+// };
+export const getProfessorsByDepartment = async (req, res) => {
+  const studentId = req.user._id;
   const department = req.query.department || "";
 
   if (!department || !["IT", "CSE", "ECE"].includes(department)) {
@@ -271,11 +390,13 @@ export const getProfessorsByDepartment = async (req, res) => {
     const professors = await Professor.find({
       "profile.department": department,
       isAvailableToMentor: true,
-    }).select("profile.name email");
+    })
+      .select("profile.name email receivedRequests profile.profileImage profile.department currentMenteesCount");
 
     return res.status(200).json({
       success: true,
       professors,
+      studentId, // Optional, you can send this to frontend for comparison
     });
 
   } catch (error) {
@@ -287,7 +408,8 @@ export const getProfessorsByDepartment = async (req, res) => {
   }
 };
 
-//student update profile 
+
+//student update profile
 export const studentUpdateProfile = async (req, res) => {
   const { name, rollNo, department } = req.body;
   const file = req.file;
@@ -333,11 +455,18 @@ export const studentUpdateProfile = async (req, res) => {
 
     student.isProfileComplete = true;
     await student.save();
+    
 
     return res.status(200).json({
       success: true,
       message: "Profile updated successfully",
-      profile: student.profile
+       student: {
+        _id: student._id,
+        profile: student.profile,
+        email: student.email,
+        // selectedProjectId:student.selectedProject,
+        isProfileComplete:student.isProfileComplete
+      }
     });
 
   } catch (error) {
@@ -356,6 +485,7 @@ export const getStudentDashboard = async (req, res) => {
 
     const student = await Student.findById(studentId)
       .populate("selectedProject");
+      // console.log(student.selectedProject); // 🔍 See what this logs
 
     if (!student) {
       return res.status(401).json({
@@ -393,34 +523,63 @@ export const getStudentDashboard = async (req, res) => {
 
 
 
-
-
-
 // student check status of their request
+// export const getRequestStatus = async (req, res) => {
+//   try {
+//     const studentId = req.user._id;
+
+//     // Find the latest request made by the student (if any)
+//     const latestRequest = await Request.findOne({ requestBy: studentId })
+//       .sort({ createdAt: -1 }) // get latest
+//       .populate("forProfessor", "profile.name profile.department")
+//       .populate("forProject", "title");
+
+//     if (!latestRequest) {
+//       return res.status(200).json({
+//         status: "not_requested",
+//         message: "No mentorship request sent yet",
+//         success: true,
+//       });
+//     }
+
+//     return res.status(200).json({
+//       status: latestRequest.status,
+//       professor: latestRequest.forProfessor,
+//       project: latestRequest.forProject,
+//       message: `Request status is: ${latestRequest.status}`,
+//       success: true,
+//     });
+
+//   } catch (error) {
+//     console.error("Error fetching request status:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal server error",
+//     });
+//   }
+// };
+  
 export const getRequestStatus = async (req, res) => {
   try {
     const studentId = req.user._id;
 
-    // Find the latest request made by the student (if any)
-    const latestRequest = await Request.findOne({ requestBy: studentId })
-      .sort({ createdAt: -1 }) // get latest
+    // Fetch ALL requests made by the student
+    const allRequests = await Request.find({ requestBy: studentId })
+      .sort({ createdAt: -1 }) // latest first
       .populate("forProfessor", "profile.name profile.department")
       .populate("forProject", "title");
 
-    if (!latestRequest) {
+    if (!allRequests || allRequests.length === 0) {
       return res.status(200).json({
-        status: "not_requested",
-        message: "No mentorship request sent yet",
         success: true,
+        requests: [],
+        message: "No mentorship requests found",
       });
     }
 
     return res.status(200).json({
-      status: latestRequest.status,
-      professor: latestRequest.forProfessor,
-      project: latestRequest.forProject,
-      message: `Request status is: ${latestRequest.status}`,
       success: true,
+      requests: allRequests, // 👈 return full array
     });
 
   } catch (error) {
@@ -434,14 +593,49 @@ export const getRequestStatus = async (req, res) => {
 
 
 
+
 // withdraw pending mentorship request 
+// export const withdrawMentorshipRequest = async (req, res) => {
+//   const studentId = req.user._id;
+
+//   try {
+//     const request = await Request.findOne({
+//       requestBy: studentId,
+//       status: "pending"
+//     });
+
+//     if (!request) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "No pending mentorship request found to withdraw.",
+//       });
+//     }
+
+//     await request.deleteOne();
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Mentorship request withdrawn successfully.",
+//     });
+
+//   } catch (error) {
+//     console.error("Error withdrawing mentorship request:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal server error",
+//     });
+//   }
+// };
+// import Professor from '../models/professorModel.js'; // make sure this is imported if not already
+
 export const withdrawMentorshipRequest = async (req, res) => {
   const studentId = req.user._id;
 
   try {
+    // Find only pending requests
     const request = await Request.findOne({
       requestBy: studentId,
-      status: "pending"
+      status: "pending",
     });
 
     if (!request) {
@@ -451,7 +645,14 @@ export const withdrawMentorshipRequest = async (req, res) => {
       });
     }
 
-    await request.deleteOne();
+    // Update status to "withdrawn"
+    request.status = "withdrawn";
+    await request.save();
+
+    // Remove studentId from professor's receivedRequests
+    await Professor.findByIdAndUpdate(request.forProfessor, {
+      $pull: { receivedRequests: studentId }
+    });
 
     return res.status(200).json({
       success: true,
@@ -466,3 +667,4 @@ export const withdrawMentorshipRequest = async (req, res) => {
     });
   }
 };
+
